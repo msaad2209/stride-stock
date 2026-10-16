@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+coverage/
+# Other projects already present in this shared workspace
+/App - B2B Pharmacy/
+/HopitalWebsite/
+/Details.txt
