@@ -1,88 +1,103 @@
-# StrideStock — footwear shop stock and sales
+# StrideStock
 
-An installable, mobile-first web app for footwear shops. It keeps stock, sales, returns, labels and exports online through Supabase. The v2 upgrade supports an admin account, shop-scoped staff accounts, Shop 1 and Shop 2, plus an all-shops read-only admin view.
+StrideStock is a mobile-first footwear inventory and sales app. It runs as a static installable PWA and uses Supabase for sign-in, online data, database safeguards and shop isolation. The browser only uses the public anon key; never add a service-role key to the frontend or Cloudflare Pages.
 
-## Set up your free Supabase project
+## Before you start
 
-1. Go to [supabase.com](https://supabase.com) and create a free project. Choose a strong database password and keep it somewhere safe.
-2. In the project, open **SQL Editor**. Paste and run `supabase/migrations/001_init.sql` first. Then paste and run `supabase/seed.sql` to add Shop 1, starter categories and three sample designs.
-3. Open **Authentication → Users → Add user**. Create your admin with an email and password. There is no sign-up screen in the app.
-4. For this v2 app, open `supabase/migrations/002_v2.sql` in a text editor, replace `REPLACE_WITH_ADMIN_EMAIL` in the marked admin setup block with that Auth user's email, then paste the full file into Supabase **SQL Editor** and click **Run**. This adds profiles, Shop 2, the new categories and shop-scoped security. Keep the file for your records.
-5. In **Project Settings → API**, copy the Project URL and the public anon/publishable key. Never put the `service_role` key in this app.
+You need a free Supabase account/project, a GitHub account and a free Cloudflare account. No SQL program needs to be installed: run migrations in the Supabase website's SQL Editor. The project builds with Node.js and npm.
 
-## Run it on your computer
+## Release and live database update
 
-1. Install the current Node.js LTS version from [nodejs.org](https://nodejs.org).
-2. Open a terminal in this folder and run `npm install`.
-3. Copy `.env.example` to `.env.local`. Replace the two example values with the Supabase Project URL and public anon key.
-4. Run `npm run dev` and open the local address printed in the terminal. Sign in with the admin account.
-5. `npm test` runs the included checks. `npm run build` creates the website in `dist`.
+Follow these steps in order. The updated frontend deliberately blocks sign-in use until schema version 3 exists.
 
-## Put it online with Cloudflare Pages
+1. **Run `003_fix.sql`.** In Supabase Dashboard, open your project → **SQL Editor** → **New query**. Open `supabase/migrations/003_fix.sql` from this repository, copy the entire file into the editor, then click **Run**. Wait for Success. This is additive and preserves current stock and sales. It installs the version guard and label/RPC fixes.
+2. **Reset test data only if you intend to erase it.** Open `supabase/maintenance/reset_all_data.sql` in the repository. Near the top, edit `confirm text := '';` to `confirm text := 'DELETE EVERYTHING';`, then copy all of that file into a new Supabase SQL Editor query and Run. This permanently deletes every shop, item, variant, stock entry, sale, category and shop account; it keeps the admin account. Skip this step if any business data should be kept. Do not paste or run this maintenance script without editing and reviewing its confirmation line.
+3. **Redeploy the Edge Function.** Install the free Supabase CLI, open PowerShell in the repository folder, and run:
 
-1. Push this folder to a private GitHub repository. In GitHub repository settings, add secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY` for the weekly keepalive workflow. The anon key is public by design; RLS still protects data.
-2. In [Cloudflare Pages](https://pages.cloudflare.com/), choose **Create a project → Connect to Git** and select your repository.
-3. Set framework preset to **Vite**, build command to `npm run build`, and build output directory to `dist`.
-4. In Pages **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for production (and preview if desired). Save and redeploy.
-5. Open your HTTPS Pages address, sign in and add your shop's real stock. Keep the initial sample products only if useful.
+   ```powershell
+   npx supabase login
+   npx supabase link --project-ref klcjwirbjosgiljbasiv
+   npx supabase functions deploy admin-manage-users
+   ```
 
-## Install and try it on a phone
+   The function gets its service-role secret from Supabase's server-side runtime. Do not copy that secret into `.env`, GitHub, Cloudflare Pages, or frontend code.
+4. **Push the app release.** Push the current branch to GitHub. Cloudflare Pages should start a build automatically. In Cloudflare Dashboard → **Workers & Pages** → `stride-stock` → **Deployments**, wait until the latest deployment is successful.
+5. **Verify the release.** Open `https://stride-stock.pages.dev`, sign in as the admin, and open **Admin → System check** (or `/admin/system`). Confirm database schema, RPCs, RLS, app version and the Edge Function are green. Refresh the page if a release completed while it was already open.
+6. **Refresh older phone installs.** The phone checks for updates on launch, on focus and every five minutes. If it still shows the old screen, close the app fully and reopen it twice, or reinstall it. Confirm its footer version matches the laptop.
+7. **Create the first shop and shop account.** In **Admin**, enter the business's shop name and choose **Create shop**. The standard categories are created for it automatically. Then create a shop login with an email, temporary password, display name and that shop. Sign in to the shop account in a private browser window to verify its access.
+8. **Run the acceptance checklist** below before entering live stock.
 
-Open the HTTPS Pages site in your phone browser and choose **Add to Home Screen** (or **Install app**). In **Add incoming stock**, enter an item, article number, category, color, size range and quantities. Generate and print labels, or choose **Save as PDF** in the print dialog. Open **Sell**, tap **Scan a barcode**, allow camera access and scan a printed label. Change the price if needed and confirm. The fallback SKU field also accepts a USB/Bluetooth keyboard scanner.
+## Run locally
 
-Camera tips: use good light, hold the phone 15–25 cm from the label, print labels at least 38 mm wide, and avoid glossy laminate glare. The camera requires HTTPS. If you deny permission, allow it in the browser's site settings and retry.
+1. Install Node.js LTS from [nodejs.org](https://nodejs.org/).
+2. In the repository folder, copy `.env.example` to `.env.local`.
+3. In Supabase Dashboard → **Project Settings → API**, copy the Project URL and anon/public key into `.env.local`:
 
-## Excel and backups
+   ```env
+   VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+   VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_KEY
+   ```
 
-On **Admin & exports**, download Stock and Sales as `.xlsx`, or Items as `.csv`; open the files in Excel. Make a monthly backup and keep a copy somewhere safe. You can also use the Supabase dashboard's table view to export any table to CSV and open it in Excel. Sales history is never overwritten by stock imports.
+   The anon key is designed for browser use and protected by RLS. Never use the service-role key here.
+4. In PowerShell, run:
 
-## Database and access notes
+   ```powershell
+   npm install
+   npm run dev
+   ```
 
-All business tables carry `shop_id`. The v2 migration requires an active profile and scopes shop-user reads/writes with Row Level Security; only admins can read across shops. The browser uses the public anon/publishable key. Quantity changes are restricted to atomic database RPCs, so concurrent or retried sales cannot reduce stock below zero or double-decrement a client retry.
+5. Open the local URL shown by Vite. Camera access requires HTTPS, so camera scanning should be tested on the deployed `https://` site, not a plain HTTP phone connection.
 
-The GitHub Actions keepalive runs weekly and calls the no-data `ping()` RPC. Add the two repository secrets above for it to work.
+## GitHub and Cloudflare Pages
 
-## v2 upgrade guide (existing live installation)
+1. Push this repository to GitHub. In Cloudflare Dashboard, open **Workers & Pages → Create → Pages → Connect to Git** and choose the repository.
+2. Set production branch to `main`, build command to `npm run build`, and output directory to `dist`.
+3. Under the Pages project's **Settings → Environment variables**, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for Production (and Preview if you will use preview deployments). Save and redeploy.
+4. Commit and push changes to `main`; Cloudflare builds each push. Confirm the deployment is successful before sharing it.
 
-This is an additive upgrade for the already deployed beta. It does not drop tables or erase stock or sales. The SQL migration replaces the beta-wide authenticated-user policies with shop profiles, so take the backup first and follow these steps in order.
+## Install on a phone and use the camera
 
-1. **Back up the current data.** Sign in as the current admin, open **Admin**, and download Stock and Sales. Save copies on your computer. The Supabase dashboard also lets you open each table and export CSV.
-2. **Prepare the admin email in the migration.** Open `supabase/migrations/002_v2.sql` in a text editor. Find the marked `ADMIN PROFILE SETUP` block and replace `REPLACE_WITH_ADMIN_EMAIL` with the email of the existing Supabase Auth admin account. Keep the email inside the single quotes. Do not edit the service-role key into any file; no key is needed for this step.
-3. **Run the migration.** In the Supabase Dashboard, open **SQL Editor → New query**. Paste the complete edited `002_v2.sql` file and click **Run**. Wait for the success result before moving on. The migration links your existing admin, keeps existing rows in their current shop, creates Shop 2 without sample inventory, installs the search index and RPCs, and seeds the standard categories.
-4. **Deploy admin account management (recommended).** Install the free Supabase CLI from the Supabase documentation, open a terminal in the project folder, then run `supabase login`, `supabase link --project-ref YOUR_PROJECT_REF`, and `supabase functions deploy admin-manage-users`. Supabase supplies the service-role secret to the function runtime; never put that secret into Cloudflare, GitHub Actions, `.env.local`, or the source code. The detailed actions are in [`supabase/functions/admin-manage-users/README.md`](supabase/functions/admin-manage-users/README.md).
-5. **If you cannot use the CLI**, create shop Auth users in **Authentication → Users → Add user**, then add the matching `profiles` row in SQL Editor with `role='shop'`, their `shop_id`, a display name, and `active=true`. See the function README for the manual fallback and password/deactivation steps. New shops can also be inserted through the Admin screen; categories are seeded automatically.
-6. **Create Shop 2 logins.** Sign back into the deployed app as admin, choose a shop from the header when needed, open **Admin**, create two shop logins and assign each to Shop 2. Use temporary passwords and share them securely. Shop users go straight to the sales counter and cannot use Admin or see another shop's data.
-7. **Push to GitHub.** Commit and push the updated app and migration to the connected GitHub repository. Cloudflare Pages rebuilds from `main`. Confirm its deployment succeeds before using the v2 UI. The existing `.env` values in Cloudflare stay the public Supabase Project URL and anon/publishable key.
-8. **Verify the upgrade.** Sign in as admin and check the shop switcher, search, categories, Shop 2 and account creation. Sign in from a private/incognito browser as each shop user and confirm their shop name, stock, sale, and `/admin` access. Add test stock with two colors and a doubled size; verify quantities and batch labels. Print one label and scan it from a phone over HTTPS, confirm a sale and return it. Export more than 1,000 rows if you have them. The SQL safety scripts in `tests/` can be run in a transaction from the Supabase SQL Editor; review their comments first.
-9. **Rollback notes.** Cloudflare can be rolled back to the previous successful deployment from the Pages deployment list. The v2 migration is forward-only and intentionally does not drop or reverse user data; do not rerun `001_init.sql` or delete the new profiles. If the new UI needs to be taken offline, revert the Git commit and redeploy the previous app. Keep the v2 migration active so its security policies remain in place. For database issues, restore the backup only after taking a fresh export and reviewing the tables affected.
+Open the deployed HTTPS URL in Chrome on Android or Safari on iPhone. Android: browser menu → **Install app** or **Add to Home screen**. iPhone: Safari **Share** → **Add to Home Screen**. Open the installed app, sign in and go to **Sell → Scan with camera**. Allow camera access. You can also type or keyboard-scan a SKU into the always-visible field and press Enter.
 
-### What changed in v2
+Camera tips: use good light, hold the phone about 15–25 cm from the label, print labels at least 38 mm wide, and avoid glossy laminate glare. The camera requires HTTPS. If permission was denied, allow it in the browser/site settings and retry.
 
-- Stock, barcode, and sales searches use a tokenized Postgres RPC with trigram-indexed search text and server-side 50-row pages. The browser no longer scans whole tables for matching rows or dashboard totals.
-- Stock intake supports a size-by-size pattern multiplied by per-color set counts and saves an entire intake batch atomically.
-- Profiles enforce shop boundaries in RLS. Admin can choose one shop or an all-shops read-only view. Admin exports page through data in 1,000-row chunks and include a full CSV ZIP backup.
-- Returns work for past sales and are idempotent. Sale retries use a UUID client reference.
-- Standard categories are seeded for each shop; the previous default categories are retained but inactive.
-- Weekly keepalive now calls the public `ping()` health RPC, which does not read shop data.
+## Everyday use
 
-### Manual SQL fallback for shop profiles
+- **Add incoming stock:** enter item and article number, category, size range and per-size pair count, then add one or more colors and set counts. Existing article/color/size combinations are reused and quantity is added. The successful batch shows its exact pair count and offers **Print N labels**.
+- **Print box labels:** select labels from the same stock-entry batch to print exactly the newly added pairs. Search stock to print one label per pair currently in stock, one per variant, or a custom amount. Labels use the same barcode for identical pairs. Use the browser print dialog; choose **Save as PDF** there if needed.
+- **Sell:** scan, use a keyboard-wedge scanner, type a SKU, or search item/article and pick a size. Confirm the price to save the sale. The scanner ignores the same code for two seconds. Returns restore one pair exactly once.
+- **Stock and sales:** use search, category/size/color filters and the stock status filter. Quantity adjustments require a reason. Sales history supports date, category, status and text filters.
+- **Admin and Excel:** admins can download stock and sales as `.xlsx`, items as `.csv`, and a full CSV ZIP backup. Exports page through large datasets. Imports preview and validate before adding; imports do not overwrite sales history.
 
-If the Edge Function cannot be deployed, create the Auth user in the dashboard and run the following in the SQL Editor, replacing the email and shop UUID. Run this as the database owner, not from the browser:
+## Acceptance checklist
 
-```sql
-insert into public.profiles(user_id, role, shop_id, active, display_name)
-select id, 'shop', 'REPLACE_WITH_SHOP_UUID'::uuid, true, 'Shop staff'
-from auth.users where lower(email) = lower('shop@example.invalid');
-```
+- Add a test article with sizes 37–41 and one color; set size 39 to 2 pairs and the others to 1. It should show five variants, six pairs and **Print 6 labels**. Preview/print includes two labels for size 39.
+- Add a second color and verify it creates separate barcodes per color/size. Repeat the same article/color/size and verify quantity increases without duplicate variants.
+- Print a label, scan it from the phone, edit its price, and confirm. Check stock drops by one and today's sales shows the exact sale price. Scan the same label again within two seconds; it must not double-submit.
+- Sell the last pair, verify another sale is blocked, then return the first sale and confirm stock is restored once.
+- Search a color in Stock; combine a size and category filter. Check the phone and laptop show the same app version.
+- Export Stock as `.xlsx` and open it in Excel. Test a shop account in a private window: it must only see its assigned shop and `/admin` must redirect away.
+- To verify isolation fully, create a second shop and account, then confirm that account cannot see the first shop's records.
 
-For an admin, use `role='admin'` and `shop_id=null`. Keep only the intended admin accounts.
+## Data and security
 
-## Search and scale notes
+All business data is online; there is no offline stock or sale mode. `shop_id` scopes all business tables and RLS policies. Admin users can manage shops/accounts and view exports; shop users are limited to their assigned shop. Soft-deactivate stock/category records in the UI rather than deleting sales history. Timestamps are stored in UTC and displayed in Asia/Kolkata; currency is INR.
 
-List screens call paginated database RPCs (50 results per page); summary cards are calculated in SQL. Exports read in 1,000-row windows because the Supabase REST API caps responses. Barcode printing loads nothing by default and prints up to 100 labels per print batch. Service-worker caching is limited to the app shell; sales and stock require an internet connection.
+Monthly, download Stock, Sales and the full ZIP backup, then store a copy somewhere safe. Supabase Dashboard table views can also export individual tables to CSV; open those CSV files in Excel. The weekly GitHub Actions keepalive makes a GET request to the Supabase REST API root with the public anon key. Add GitHub repository secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY` for that workflow.
+
+## Database files
+
+- `supabase/migrations/001_init.sql`: original base schema.
+- `supabase/migrations/002_v2.sql`: shop profiles, policies, search and shop RPCs.
+- `supabase/migrations/003_fix.sql`: v3 release fix; run this against the live project before using the new frontend.
+- `supabase/seed.sql`: intentionally does not create shops or sample inventory. Admin creates the shops.
+- `supabase/maintenance/reset_all_data.sql`: separate, manual, confirmation-gated destructive reset.
+- `tests/`: Vitest utilities and SQL safety scripts. SQL test scripts are for a disposable test database or reviewed transaction; never run fixtures against live data without understanding them.
 
 ## Future roadmap (not implemented)
 
+- Multiple users with roles and permissions
+- Multi-shop switching for staff
 - Supplier and purchase tracking
 - GST invoices
-- Offline stock and sales
+- Offline mode

@@ -16,7 +16,7 @@ The function uses the standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABAS
 
 ## Supported actions
 
-- `create_shop`: body `{ "action": "create_shop", "name": "Shop 2" }`
+- `create_shop`: body `{ "action": "create_shop", "name": "Another shop" }`
 - `create_user`: body `{ "action": "create_user", "email": "shop@example.invalid", "password": "temporary-password", "display_name": "Shop staff", "shop_id": "SHOP_UUID" }`. Email confirmation is completed automatically.
 - `reset_password`: body `{ "action": "reset_password", "user_id": "AUTH_USER_UUID", "password": "new-temporary-password" }`
 - `set_active`: body `{ "action": "set_active", "user_id": "AUTH_USER_UUID", "active": false }`

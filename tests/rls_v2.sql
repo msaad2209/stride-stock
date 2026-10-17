@@ -8,7 +8,7 @@ do $$
 declare other_shop uuid := 'REPLACE_WITH_SHOP_1_UUID'::uuid; n bigint;
 begin
   select count(*) into n from public.variants where shop_id=other_shop;
-  if n<>0 then raise exception 'FAIL: Shop 2 user can read Shop 1 variants (% rows)',n; end if;
+  if n<>0 then raise exception 'FAIL: Second shop user can read first shop variants (% rows)',n; end if;
   begin
     perform public.resolve_shop(other_shop);
     raise exception 'FAIL: shop user was allowed to select another shop';
@@ -21,6 +21,6 @@ begin
   exception when insufficient_privilege then
     raise notice 'PASS: direct quantity update denied; use stock RPC';
   end;
-  raise notice 'PASS: Shop 2 cannot read Shop 1 variant rows';
+  raise notice 'PASS: Second shop cannot read first shop variant rows';
 end $$;
 rollback;

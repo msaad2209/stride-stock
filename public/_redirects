@@ -1,1 +1,1 @@
-# SPA fallback is configured in the root wrangler.jsonc assets.not_found_handling setting.
+/* /index.html 200

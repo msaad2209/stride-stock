@@ -37,3 +37,28 @@ export function expandImportRow(row: z.infer<typeof importRowInput>) {
 
 export const searchTokens = (query: string) => query.trim().toLocaleLowerCase('en-IN').split(/\s+/).filter(Boolean);
 export const tokenSearchMatches = (haystack: string, query: string) => searchTokens(query).every((token) => haystack.toLocaleLowerCase('en-IN').includes(token));
+
+export type LabelRow = { id: string; quantity: number; qty_added?: number };
+export type LabelCopyMode = 'batch' | 'stock' | 'variant' | 'custom';
+export function labelCopies(row: LabelRow, mode: LabelCopyMode, customCopies = 1): number {
+  if (mode === 'batch') return Math.max(0, row.qty_added || 0);
+  if (mode === 'stock') return Math.max(0, row.quantity || 0);
+  if (mode === 'custom') return Math.max(0, Math.floor(customCopies));
+  return 1;
+}
+export function totalLabelCount(rows: LabelRow[], mode: LabelCopyMode, customCopies = 1): number {
+  return rows.reduce((total, row) => total + labelCopies(row, mode, customCopies), 0);
+}
+export function expandLabelChunk<T extends LabelRow>(rows: T[], mode: LabelCopyMode, offset: number, limit = 100, customCopies = 1): T[] {
+  const result: T[] = [];
+  let skip = Math.max(0, offset);
+  for (const row of rows) {
+    const count = labelCopies(row, mode, customCopies);
+    if (skip >= count) { skip -= count; continue; }
+    const copies = Math.min(count - skip, limit - result.length);
+    for (let index = 0; index < copies; index += 1) result.push(row);
+    skip = 0;
+    if (result.length >= limit) break;
+  }
+  return result;
+}

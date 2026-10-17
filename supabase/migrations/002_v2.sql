@@ -33,17 +33,12 @@ alter table public.profiles enable row level security;
 -- ADMIN PROFILE SETUP: replace this address with the existing Supabase Auth admin email,
 -- then run this migration. It links the existing user without changing password or data.
 do $$ declare admin_email text := 'msaad2209bk2@gmail.com'; admin_id uuid; begin
-  if admin_email = 'REPLACE_WITH_ADMIN_EMAIL' then
-    raise exception 'Replace REPLACE_WITH_ADMIN_EMAIL in 002_v2.sql with your existing admin email before running this migration';
-  end if;
   select id into admin_id from auth.users where lower(email)=lower(admin_email) limit 1;
   if admin_id is null then raise exception 'No Supabase Auth user found for admin email %', admin_email; end if;
   insert into public.profiles(user_id,role,shop_id,active,display_name)
   values(admin_id,'admin',null,true,split_part(admin_email,'@',1))
   on conflict(user_id) do update set role='admin',shop_id=null,active=true;
 end $$;
-
-insert into public.shops(name) select 'Shop 2' where not exists(select 1 from public.shops where name='Shop 2');
 
 create or replace function public.auth_role() returns text language sql stable security definer set search_path=public as $$
  select role from public.profiles where user_id=auth.uid() and active=true
@@ -272,3 +267,5 @@ grant select on public.variants,public.sales,public.stock_entries to authenticat
 --   end if;
 -- end $$;
 -- commit;
+
+notify pgrst, 'reload schema';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expandImportRow, expandSetVariants, importRowInput, searchTokens, tokenSearchMatches } from '../src/lib/v2-utils';
+import { expandImportRow, expandSetVariants, importRowInput, labelCopies, totalLabelCount, expandLabelChunk, searchTokens, tokenSearchMatches } from '../src/lib/v2-utils';
 import { expandSizes } from '../src/lib/utils';
 
 describe('v2 set quantities', () => {
@@ -38,5 +38,27 @@ describe('database search token preparation', () => {
   it('treats percent and apostrophe as ordinary token characters', () => {
     expect(searchTokens(" 100% John's ")).toEqual(['100%','john\'s']);
     expect(tokenSearchMatches("100% john's black", "100% John's")).toBe(true);
+  });
+});
+
+describe('physical pair labels', () => {
+  const rows = [
+    { id:'37', quantity:1, qty_added:1 }, { id:'38', quantity:1, qty_added:1 },
+    { id:'39', quantity:2, qty_added:2 }, { id:'40', quantity:1, qty_added:1 }, { id:'41', quantity:1, qty_added:1 },
+  ];
+  it('prints one label per physical pair added in the batch', () => {
+    expect(totalLabelCount(rows, 'batch')).toBe(6);
+    expect(labelCopies(rows[2], 'batch')).toBe(2);
+    expect(expandLabelChunk(rows, 'batch', 0, 100)).toHaveLength(6);
+    expect(expandLabelChunk(rows, 'batch', 0, 100).filter(row => row.id === '39')).toHaveLength(2);
+  });
+  it('splits a large print job into chunks without losing or duplicating labels', () => {
+    const many = Array.from({length:200}, (_, i) => ({id:String(i), quantity:3, qty_added:3}));
+    expect(totalLabelCount(many, 'batch')).toBe(600);
+    const first = expandLabelChunk(many, 'batch', 0, 100);
+    const next = expandLabelChunk(many, 'batch', 100, 100);
+    expect(first).toHaveLength(100);
+    expect(next).toHaveLength(100);
+    expect(first.map(r => r.id)).not.toEqual(next.map(r => r.id));
   });
 });
