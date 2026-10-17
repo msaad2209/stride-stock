@@ -7,11 +7,13 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST API
+      - name: Ping public health RPC
         run: |
-          curl --fail --silent --show-error "${SUPABASE_URL}/rest/v1/shops?select=id&limit=1" \
+          curl --fail --silent --show-error --request POST "${SUPABASE_URL}/rest/v1/rpc/ping" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}"
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            --data '{}'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

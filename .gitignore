@@ -5,6 +5,7 @@ dist/
 !.env.example
 *.tsbuildinfo
 coverage/
+backups/
 # Other projects already present in this shared workspace
 /App - B2B Pharmacy/
 /HopitalWebsite/
