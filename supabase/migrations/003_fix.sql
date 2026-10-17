@@ -55,7 +55,7 @@ begin
     join public.items i on i.id=v.item_id
     left join public.categories c on c.id=i.category_id
     where se.batch_id=p_batch_id and se.shop_id=sid and se.qty_added>0
-    group by v.id, v.shop_id, v.item_id, i.name, i.article_no, c.name,
+    group by v.id, v.shop_id, v.item_id, i.category_id, i.name, i.article_no, c.name,
              v.color, v.size, v.sku_code, v.quantity, i.default_price
     having sum(se.qty_added)>0
     order by i.name, v.color, v.size;
@@ -71,7 +71,7 @@ begin
   if not public.is_admin() then
     raise exception 'Permission denied for this shop' using errcode='42501';
   end if;
-  return query select expected.name, to_regprocedure(expected.signature) is not null
+  return query select expected.name::text, to_regprocedure(expected.signature::text) is not null
   from (values
     ('get_schema_version','public.get_schema_version()'),
     ('check_functions','public.check_functions()'),
